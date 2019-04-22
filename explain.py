@@ -62,8 +62,7 @@ def preprocess_LLIL_FLAG(bv, llil_instruction):
     """ Follow back temporary flags and append the address where they're created """
     if llil_instruction.src.temp:
         flag = llil_instruction.ssa_form.src
-        indx = llil_instruction.function.get_ssa_flag_definition(flag)
-        src = llil_instruction.function[indx]
+        src = llil_instruction.function.get_ssa_flag_definition(flag)
         if hasattr(src, 'src'):
             # Make sure that we're actually looking at a instruction that sets something (and not a Phi function)
             llil_instruction.src = src.src
@@ -86,8 +85,7 @@ def preprocess_LLIL_REG(_bv, llil_instruction):
     """ Follow back temporary registers and append the address where they're created """
     if llil_instruction.src.temp:
         reg = llil_instruction.ssa_form.src
-        indx = llil_instruction.function.get_ssa_reg_definition(reg)
-        src = llil_instruction.function[indx]
+        src = llil_instruction.function.get_ssa_reg_definition(reg)
         if hasattr(src, 'src'):
             # I've never seen it in the wild, but it's probably possible for a temporary variable to be sourced
             # from a Phi function on the same instruction, which could lead to infinite recursion
