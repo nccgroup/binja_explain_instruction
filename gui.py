@@ -1,7 +1,5 @@
-from __future__ import print_function
+"""The main instruction explanation GUI."""
 import sys
-if (sys.platform == 'win32'):
-    sys.path.append("C:\\Python27\\lib\\site-packages")
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, qApp
 from PyQt5.QtCore import QCoreApplication
@@ -18,13 +16,14 @@ if app is None:
 try:
     main_window = [x for x in app.allWidgets() if x.__class__ is QMainWindow][0]
 except IndexError:
-    raise Exception("Could not attach to main window!")
+    raise RuntimeError("Could not attach to main window!")
 
-from util import *
+from binja_explain_instruction.util import *
 
 mlil_tooltip = """Often, several assembly instructions make up one MLIL instruction.
 The MLIL instruction shown may not correspond to this instruction
 alone, or this instruction may not have a direct MLIL equivalent."""
+
 
 def make_hline():
     out = QtWidgets.QFrame()
@@ -32,18 +31,26 @@ def make_hline():
     out.setFrameShadow(QtWidgets.QFrame.Sunken)
     return out
 
+
 def __None__(*args):
-    return [("No documentation available", "https://github.com/ehennenfent/binja_explain_instruction/blob/master/CONTRIBUTING.md")]
+    return [
+        (
+            "No documentation available",
+            "https://github.com/ehennenfent/binja_explain_instruction/blob/master/CONTRIBUTING.md",
+        )
+    ]
+
 
 class ExplanationWindow(QtWidgets.QWidget):
     """ Displays a brief explanation of what an instruction does """
+
     def __init__(self):
         super(ExplanationWindow, self).__init__()
         self.setWindowTitle("Explain Instruction")
         self.setLayout(QtWidgets.QVBoxLayout())
         self._layout = self.layout()
 
-        self.newline = '\n'
+        self.newline = "\n"
 
         self._labelFont = QFont()
         self._labelFont.setPointSize(12)
@@ -130,7 +137,7 @@ class ExplanationWindow(QtWidgets.QWidget):
         self._stateDisplay.setFont(QFontDatabase.systemFont(QFontDatabase.FixedFont))
         self._layout.addWidget(self._stateDisplay)
 
-        self.setObjectName('Explain_Window')
+        self.setObjectName("Explain_Window")
 
         self.get_doc_url = __None__
 
@@ -187,10 +194,11 @@ class ExplanationWindow(QtWidgets.QWidget):
     def escape(self, in_str):
         return in_str
 
+
 def explain_window():
     global main_window
     # Creates a new window if it doesn't already exist
-    if not hasattr(main_window, 'explain_window'):
+    if not hasattr(main_window, "explain_window"):
         main_window.explain_window = ExplanationWindow()
 
     return main_window.explain_window
