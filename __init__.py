@@ -1,55 +1,50 @@
+"""Explain a given instruction in the Binary Ninja interface."""
 from binaryninja import LowLevelILOperation, PluginCommand, log_info, log_error
 
 try:
-    from gui import explain_window
-except:
+    from binja_explain_instruction.gui import explain_window
+except ImportError:
     log_info("PyQt5 Gui unavailable; falling back to MessageBox hack")
-    from native_gui import explain_window
-from instruction_state import get_state
-from explain import explain_llil, fold_multi_il
-from util import get_function_at, find_mlil, find_llil, find_lifted_il, inst_in_func, dereference_symbols
+    from .native_gui import explain_window
+
+from .instruction_state import get_state
+from .explain import explain_llil, fold_multi_il
+from .util import get_function_at, find_mlil, find_llil, find_lifted_il, inst_in_func, dereference_symbols
 
 import traceback
 
 arch = None
 architecture_specific_explanation_function = lambda *_: (False, ["Architecture-specific explanations unavailable"])
 
+
 def init_plugin(bv):
-    """ Creates the plugin window and sets up the architecture-specfic functions """
+    """ Creates the plugin window and sets up the architecture-specific functions """
     global arch, architecture_specific_explanation_function
 
     # Sets up architecture-specific functions
     if bv.arch.name != arch:
-        if 'x86' in bv.arch.name:
-            import x86, x86.explain
-            explain_window().get_doc_url = x86.get_doc_url
-            architecture_specific_explanation_function = x86.explain.arch_explain_instruction
-        elif 'mips' in bv.arch.name:
-            import mips, mips.explain
-            explain_window().get_doc_url = mips.get_doc_url
-            architecture_specific_explanation_function = mips.explain.arch_explain_instruction
-        elif 'aarch64' in bv.arch.name:
-            import aarch64, aarch64.explain
-            explain_window().get_doc_url = aarch64.get_doc_url
-            architecture_specific_explanation_function = aarch64.explain.arch_explain_instruction
-        elif 'arm' in bv.arch.name or 'thumb' in bv.arch.name: # Note: completely untested on thumb2. I couldn't find a test binary.
-            import ual, ual.explain
-            explain_window().get_doc_url = ual.get_doc_url
-            architecture_specific_explanation_function = ual.explain.arch_explain_instruction
-        elif '6502' in bv.arch.name:
-            import asm6502, asm6502.explain
-            explain_window().get_doc_url = asm6502.get_doc_url
-            architecture_specific_explanation_function = asm6502.explain.arch_explain_instruction
-        elif 'msp430' in bv.arch.name:
-            import msp430, msp430.explain
-            explain_window().get_doc_url = msp430.get_doc_url
-            architecture_specific_explanation_function = msp430.explain.arch_explain_instruction
-        elif 'powerpc' in bv.arch.name:
+        if "x86" in bv.arch.name:
+            from binja_explain_instruction.x86 import explain, get_doc_url
+        elif "mips" in bv.arch.name:
+            from binja_explain_instruction.mips import explain, get_doc_url
+        elif "aarch64" in bv.arch.name:
+            from binja_explain_instruction.aarch64 import explain, get_doc_url
+        elif "arm" in bv.arch.name or "thumb" in bv.arch.name:  # Note: completely untested on thumb2.
+            from binja_explain_instruction.ual import explain, get_doc_url
+        elif "6502" in bv.arch.name:
+            from binja_explain_instruction.asm6502 import explain, get_doc_url
+        elif "msp430" in bv.arch.name:
+            from binja_explain_instruction.msp430 import explain, get_doc_url
+        elif "powerpc" in bv.arch.name:
             # PowerPC support will likely be added in Binja v1.1; may need to change the arch name
-            import powerpc, powerpc.explain
-            explain_window().get_doc_url = powerpc.get_doc_url
-            architecture_specific_explanation_function = powerpc.explain.arch_explain_instruction
+            from binja_explain_instruction.powerpc import explain, get_doc_url
+        else:
+            raise TypeError("Could not identify architecture type!")
+
+        explain_window().get_doc_url = get_doc_url
+        architecture_specific_explanation_function = explain.arch_explain_instruction
         arch = bv.arch.name
+
 
 def explain_instruction(bv, addr):
     """ Callback for the menu item that passes the information to the GUI """
@@ -68,11 +63,13 @@ def explain_instruction(bv, addr):
 
     # Give the architecture submodule a chance to supply an explanation for this instruction that takes precedence
     # over the one generated via the LLIL
-    should_supersede_llil, explanation_list = architecture_specific_explanation_function(bv, instruction, lifted_il_list)
+    should_supersede_llil, explanation_list = architecture_specific_explanation_function(
+        bv, instruction, lifted_il_list
+    )
 
     # Display the raw instruction
     try:
-        explain_window().instruction = "{addr}:  {inst}".format(addr=hex(addr).replace("L", ""), inst=instruction)
+        explain_window().instruction = f"{hex(addr).replace('L', '')}:  {instruction}"
     except Exception:
         traceback.print_exc()
 
@@ -82,7 +79,9 @@ def explain_instruction(bv, addr):
             explain_window().description = [explanation for explanation in explanation_list]
         else:
             # Otherwise, just prepend the arch-specific explanation to the LLIL explanation
-            explain_window().description = [explanation for explanation in explanation_list] + [explain_llil(bv, llil) for llil in (parse_il)]
+            explain_window().description = [explanation for explanation in explanation_list] + [
+                explain_llil(bv, llil) for llil in parse_il
+            ]
     else:
         # By default, we just use the LLIL explanation
         # We append the line number if we're displaying a conditional.
@@ -93,7 +92,14 @@ def explain_instruction(bv, addr):
     explain_window().mlil = [dereference_symbols(bv, mlil) for mlil in mlil_list]
 
     # Pass in the flags, straight from the API. We don't do much with these, but they might make things more clear
-    explain_window().flags = [(func.get_flags_read_by_lifted_il_instruction(lifted.instr_index), func.get_flags_written_by_lifted_il_instruction(lifted.instr_index), lifted) for lifted in lifted_il_list]
+    explain_window().flags = [
+        (
+            func.get_flags_read_by_lifted_il_instruction(lifted.instr_index),
+            func.get_flags_written_by_lifted_il_instruction(lifted.instr_index),
+            lifted,
+        )
+        for lifted in lifted_il_list
+    ]
 
     # Display what information we can calculate about the program state before the instruction is executed
     try:
@@ -102,5 +108,6 @@ def explain_instruction(bv, addr):
         log_error("No instruction state support for this architecture")
 
     explain_window().show()
+
 
 PluginCommand.register_for_address("Explain Instruction", "", explain_instruction)

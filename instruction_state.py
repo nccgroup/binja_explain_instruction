@@ -20,20 +20,24 @@
 
 from binaryninja import MediumLevelILOperation, RegisterValueType
 
+
 def IsRegisterValueInteresting(reg):
-    return reg.type == RegisterValueType.ConstantValue or \
-            reg.type == RegisterValueType.StackFrameOffset or \
-            reg.type == RegisterValueType.ReturnAddressValue
+    return (
+        reg.type == RegisterValueType.ConstantValue
+        or reg.type == RegisterValueType.StackFrameOffset
+        or reg.type == RegisterValueType.ReturnAddressValue
+    )
+
 
 def FindMLILCallForAddress(func, addr):
     mlil = func.medium_level_il.ssa_form
     for block in mlil:
         for m in block:
-            if m.address == addr and \
-                    m.operation == MediumLevelILOperation.MLIL_CALL_SSA:
+            if m.address == addr and m.operation == MediumLevelILOperation.MLIL_CALL_SSA:
                 return m
 
     return None
+
 
 def get_state(bv, addr):
     blocks = bv.get_basic_blocks_at(addr)
@@ -49,7 +53,7 @@ def get_state(bv, addr):
             output.append("{} = {}".format(reg, out))
 
     sp_max = func.get_reg_value_at(addr, sp).offset
-    for i in xrange(sp_max, 1):
+    for i in range(sp_max, 1):
         out = func.get_stack_contents_at(addr, i, 1)
         if IsRegisterValueInteresting(out):
             output.append("[SP{:#x}] = {}".format(i, out))
@@ -65,7 +69,7 @@ def get_state(bv, addr):
             called_function = bv.get_function_at(dest.constant)
             function_type = called_function.function_type
 
-        for i in xrange(params):
+        for i in range(params):
             out = func.get_parameter_at(addr, function_type, i)
             output.append("arg{} = {}".format(i, out))
 

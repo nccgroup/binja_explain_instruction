@@ -5,24 +5,28 @@ from ..util import *
 from . import find_proper_name
 import os
 
-with open(os.path.dirname(os.path.realpath(__file__)) + '/explanations_en.json', 'r') as explanation_file:
+with open(os.path.dirname(os.path.realpath(__file__)) + "/explanations_en.json", "r") as explanation_file:
     explanations = json.load(explanation_file)
 
 # List of instructions for which we'll just prepend the parsed LLIL explanation rather than
 # replacing it entirely
-dont_supersede_llil = ['cmp', 'test']
+dont_supersede_llil = ["cmp", "test"]
+
 
 class AttrDict(dict):
-    """ Borrowed from https://stackoverflow.com/a/14620633. Lets us use the . notation
-    in format strings. """
+    """Borrowed from https://stackoverflow.com/a/14620633. Lets us use the . notation
+    in format strings."""
+
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
         self.__dict__ = self
 
+
 def preprocess_cmp(bv, _parsed, lifted_il_instrs):
     """ Add IL tokens to make the message less generic """
     il = lifted_il_instrs[0]
-    return AttrDict({'left': explain_llil(bv, il.left), 'right': explain_llil(bv, il.right)})
+    return AttrDict({"left": explain_llil(bv, il.left), "right": explain_llil(bv, il.right)})
+
 
 def preprocess_setcc(bv, _parsed, lifted_il_instrs):
     """ Replace instruction references with actual operations """
@@ -30,7 +34,14 @@ def preprocess_setcc(bv, _parsed, lifted_il_instrs):
     lifted = get_function_at(bv, il.address).lifted_il
     t, f = lifted[il.true], lifted[il.false]
     low_level = find_llil(get_function_at(bv, il.address), il.address)
-    return AttrDict({'true': explain_llil(bv, t), 'false': explain_llil(bv, f).lower(), 'condition': explain_llil(bv, low_level[0].condition)})
+    return AttrDict(
+        {
+            "true": explain_llil(bv, t),
+            "false": explain_llil(bv, f).lower(),
+            "condition": explain_llil(bv, low_level[0].condition),
+        }
+    )
+
 
 def preprocess_cmovcc(bv, _parsed, lifted_il_instrs):
     """ Replace instruction references with actual operations """
@@ -38,7 +49,8 @@ def preprocess_cmovcc(bv, _parsed, lifted_il_instrs):
     lifted = get_function_at(bv, il.address).lifted_il
     t = lifted[il.true]
     low_level = find_llil(get_function_at(bv, il.address), il.address)
-    return AttrDict({'true': explain_llil(bv, t), 'condition': explain_llil(bv, low_level[0].condition)})
+    return AttrDict({"true": explain_llil(bv, t), "condition": explain_llil(bv, low_level[0].condition)})
+
 
 # Map instructions to function pointers
 preprocess_dict = {
@@ -48,24 +60,27 @@ preprocess_dict = {
     "cmovcc": preprocess_cmovcc,
 }
 
+
 def parse_instruction(_bv, instruction, _lifted_il_instrs):
     """ Removes whitespace and commas from the instruction tokens """
-    tokens = filter(lambda x : len(x) > 0, [str(token).strip().replace(',', '') for token in str(instruction).split(' ')])
+    tokens = [x for x in [str(token).strip().replace(",", "") for token in str(instruction).split(" ")] if len(x) > 0]
     return tokens
+
 
 def preprocess(bv, parsed, lifted_il_instrs, name):
     """ Apply preprocess functions to instructions """
     if name in preprocess_dict:
         out = preprocess_dict[name](bv, parsed, lifted_il_instrs)
-        return out if out is not None else AttrDict({'name': name})
-    return AttrDict({'name': name})
+        return out if out is not None else AttrDict({"name": name})
+    return AttrDict({"name": name})
+
 
 def arch_explain_instruction(bv, instruction, lifted_il_instrs):
     """ Returns the explanation string from explanations_en.json, formatted with the preprocessed instruction token list """
     if instruction is None:
         return False, []
     parsed = parse_instruction(bv, instruction, lifted_il_instrs)
-    if(len(parsed) == 0):
+    if len(parsed) == 0:
         return False, []
     out = []
     out_bool = False
